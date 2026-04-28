@@ -4,7 +4,7 @@ module cordic_tb;
 
 parameter WIDTH = 32;
 parameter STAGES = 16;
-parameter FRAC_BITS = 15;
+parameter FRAC_BITS = 30;   // Q2.30: real_value = fixed_value / 2^30
 parameter CLK_PERIOD = 10;
 
 reg clk, rst;
@@ -51,12 +51,22 @@ initial begin
     
     #20 rst = 0;
     
-    // Test rotation mode - rotate (1, 0) by 45 degrees
-    #10 valid_in = 1; x_in = 32'h4000_0000; y_in = 0; angle_in = 32'h2000_0000;
+    // Test rotation mode: rotate (1.0, 0.0) by 45 degrees
+    // x_in = 1.0 in Q2.30 = 0x40000000
+    // angle_in = pi/4 in Q2.30 = 0x3243F6A9
+    // Expected output (raw, includes K_n~1.6468 gain):
+    //   x_out ~ K_n*cos(45) ~ 1.164 → 0x4A72_7E68
+    //   y_out ~ K_n*sin(45) ~ 1.164 → 0x4A72_7E68
+    #10 valid_in = 1; x_in = 32'h4000_0000; y_in = 0; angle_in = 32'h3243_F6A9;
     #10 valid_in = 0;
     
-    // Test vectoring mode - convert (1, 1) to polar
-    #100 valid_in = 1; x_vec_in = 32'h4000_0000; y_vec_in = 32'h4000_0000;
+    // Test vectoring mode: convert (0.5, 0.5) to polar
+    // x_vec_in = y_vec_in = 0.5 in Q2.30 = 0x20000000
+    // (Note: inputs must satisfy K_n*sqrt(x^2+y^2) < 2.0 to avoid Q2.30 overflow)
+    // Expected output (raw, includes K_n~1.6468 gain):
+    //   magnitude ~ K_n*sqrt(0.5^2+0.5^2) ~ 1.164 → 0x4A86_1BD2
+    //   angle = 45 deg = pi/4 in Q2.30 → ~0x3244_37C9
+    #100 valid_in = 1; x_vec_in = 32'h2000_0000; y_vec_in = 32'h2000_0000;
     #10 valid_in = 0;
     
     #500 $finish;
